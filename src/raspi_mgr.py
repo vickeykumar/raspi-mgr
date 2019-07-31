@@ -44,7 +44,7 @@ def fanManager(loop):
         if cpuTemp>THRESHOLD_TEMP :
                 if not FAN_ON: fan(ON)
                 '''wait 60 sec for ev 5'C raise in temp for next polling'''
-                loop_interval = 4*loop_interval*math.ceil((cpuTemp-THRESHOLD_TEMP)/5)
+                loop_interval = 5*loop_interval*math.ceil((cpuTemp-THRESHOLD_TEMP)/5)
         else:
                 if FAN_ON: fan(OFF)
         print("CPU Temp: %d loop_after:%s"%(cpuTemp, loop_interval), flush=True)
