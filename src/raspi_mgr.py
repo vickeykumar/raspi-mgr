@@ -26,6 +26,7 @@ def getCPUtemp():
 		temp = float(out.replace("temp=","").replace("'C\n",""))
 	except Exception as e:
 		print("Exception while getting cpu temperature: ",str(e))
+		pass
 	return temp
 
 def fan(mode=True):

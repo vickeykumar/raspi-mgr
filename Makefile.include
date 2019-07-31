@@ -1,0 +1,7 @@
+GIT_TOP=$(shell git rev-parse --show-toplevel 2>/dev/null)
+UNAME := $(shell uname)
+
+ROOT=${GIT_TOP}
+
+export ROOT
+
