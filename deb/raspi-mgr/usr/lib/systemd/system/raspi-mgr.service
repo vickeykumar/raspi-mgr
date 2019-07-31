@@ -1,0 +1,17 @@
+# service for raspberry pi raspi-mgr
+
+[Unit]
+Description=service for raspberry pi raspi-mgr
+StartLimitIntervalSec=0
+StartLimitBurst=1
+
+
+[Service]
+Type=simple
+ExecStart=/usr/local/scripts/raspi_mgr.py
+Restart=always
+# Wait for 1 second before going for next start on failure case
+RestartSec=1
+NoNewPrivileges=true
+[Install]
+WantedBy=multi-user.target

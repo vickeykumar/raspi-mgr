@@ -1,7 +1,9 @@
 include Makefile.include
 DEBIAN_ROOT = ${ROOT}/deb
 
-deb:
+.PHONY: deb
+deb:	src/raspi-mgr.service src/raspi_mgr.py
+	@echo "bulding ROOT: "${ROOT}
 	mkdir -p ${DEBIAN_ROOT}/raspi-mgr/usr/lib/systemd/system
 	mkdir -p ${DEBIAN_ROOT}/raspi-mgr/usr/local/scripts/
 	install -m 644 ${ROOT}/src/raspi-mgr.service ${DEBIAN_ROOT}/raspi-mgr/usr/lib/systemd/system/raspi-mgr.service
