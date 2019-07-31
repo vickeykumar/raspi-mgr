@@ -1,0 +1,8 @@
+Package: raspi-mgr
+Version: 1.0-Beta
+Section: base
+Priority: optional
+Architecture: all
+Depends: python (>= 3.7)
+Maintainer: Vickey Kumar
+Description: raspi-mgr service

@@ -1,0 +1,7 @@
+#!/bin/sh
+# postinst
+
+chmod 0755 /usr/local/scripts/raspi_mgr.py
+chmod 0644 /usr/lib/systemd/system/raspi-mgr.service
+systemctl enable raspi-mgr
+systemctl start raspi-mgr

@@ -1,0 +1,5 @@
+#!/bin/sh
+# prerm
+
+systemctl stop raspi-mgr
+rm -rf /usr/lib/systemd/system/raspi-mgr.service
