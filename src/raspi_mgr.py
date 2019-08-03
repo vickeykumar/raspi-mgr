@@ -38,7 +38,6 @@ def getCPUtemp():
 
 def fan(mode=True):
         global FAN_PIN, FAN_ON, fanpwmHandle
-        print("fan:",mode)
         if fanpwmHandle:
             fanpwmHandle.ChangeDutyCycle(0)
         else:
