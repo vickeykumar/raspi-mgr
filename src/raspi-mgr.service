@@ -8,7 +8,7 @@ StartLimitBurst=1
 
 [Service]
 Type=simple
-ExecStart=/usr/local/scripts/raspi_mgr.py
+ExecStart=/usr/local/scripts/raspi_mgr.py --ssh --pwm
 Restart=always
 # Wait for 1 second before going for next start on failure case
 RestartSec=1
