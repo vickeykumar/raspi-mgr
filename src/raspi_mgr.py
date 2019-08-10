@@ -9,6 +9,12 @@ import RPi.GPIO as GPIO
 #from raspi_stub import GPIO
 GPIO.setmode (GPIO.BOARD)
 
+CONFIG_FILE="/etc/raspi_mgr.config"
+SSH_FWD_IP=None
+SSH_PORT=22
+TCP_FWD_IP=None
+TCP_PORT=80
+FWDNG_AGENT=None
 FAN_PIN = 7
 THRESHOLD_TEMP = 55
 FAN_ON = False
@@ -23,7 +29,7 @@ fanSpeedOld=0
 
 # variable temperature and fan speeds
 tempSteps = [50, 55, 60, 70]    # [°C]
-speedSteps = [0, 50, 75, 100]   # [%]
+speedSteps = [0, 55, 75, 100]   # [%]
 
 
 def getCPUtemp():
@@ -114,9 +120,14 @@ def parseArgs():
         return args
 
 def startsshSvc(args):
-        if args.ssh:
-            print("starting autossh service:", flush=True)
-            os.system("autossh -f -R vickeypi:22:localhost:22 serveo.net -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no")
+        global SSH_FWD_IP, SSH_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT 
+        if args.ssh and FWDNG_AGENT and (SSH_FWD_IP or TCP_FWD_IP) :
+            ssh_option = "-R %s:%s:localhost:22"%(SSH_FWD_IP, SSH_PORT) if SSH_FWD_IP else ""
+            tcp_option = "-R %s:%s:localhost:80"%(TCP_FWD_IP, TCP_PORT) if TCP_FWD_IP else ""
+            print("starting autossh service with options:%s %s"%(ssh_option,tcp_option), flush=True)
+            os.system("autossh -f %s %s %s -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"%(ssh_option,tcp_option,FWDNG_AGENT))
+        else:
+            print("skipping ssh forwarding service, please check config or arguments",flush=True)
 
 def startFanManagerSvc(args, loop):
         if args.pwm:
@@ -128,11 +139,32 @@ def startFanManagerSvc(args, loop):
             loop.call_soon(fanManagerSvc, loop)
 
 
+def parseconfigfile():
+        global CONFIG_FILE, SSH_FWD_IP, SSH_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT 
+        try:
+            f=open(CONFIG_FILE,"r")
+            lines=f.readlines()
+            f.close()
+            lines = [l.strip() for l in lines]
+            lines = [l.split("=") for l in lines if not l.startswith("#")]
+            configMap = dict([l for l in lines if len(l)==2])
+            SSH_FWD_IP = configMap["SSH_FWD_IP"] if "SSH_FWD_IP" in configMap else None
+            SSH_PORT = configMap["SSH_PORT"] if "SSH_PORT" in configMap else 22 
+            TCP_FWD_IP= configMap["TCP_FWD_IP"] if "TCP_FWD_IP" in configMap else None
+            TCP_PORT= configMap["TCP_PORT"] if "TCP_PORT" in configMap else 80
+            FWDNG_AGENT= configMap["FWDNG_AGENT"] if "FWDNG_AGENT" in configMap else None
+
+        except Exception as e:
+            print("Failed to parse config file, Exception:%s"%str(e), flush=True)
+            return False
+        return True
+
 def main():
         loop=0
         args = parseArgs()
-        startsshSvc(args)
+        parseconfigfile()
         try:
+                startsshSvc(args)
                 loop = asyncio.get_event_loop()
                 config()
                 signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
