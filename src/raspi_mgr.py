@@ -125,7 +125,7 @@ def startsshSvc(args):
             ssh_option = "-R %s:%s:localhost:22"%(SSH_FWD_IP, SSH_PORT) if SSH_FWD_IP else ""
             tcp_option = "-R %s:%s:localhost:80"%(TCP_FWD_IP, TCP_PORT) if TCP_FWD_IP else ""
             print("starting autossh service with options:%s %s"%(ssh_option,tcp_option), flush=True)
-            os.system("autossh -f %s %s %s -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"%(ssh_option,tcp_option,FWDNG_AGENT))
+            os.system('''export AUTOSSH_DEBUG=1; export AUTOSSH_POLL=60; autossh -M 0 -v -f %s %s %s -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes'''%(ssh_option,tcp_option,FWDNG_AGENT))
         else:
             print("skipping ssh forwarding service, please check config or arguments",flush=True)
 
