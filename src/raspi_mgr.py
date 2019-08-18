@@ -10,6 +10,7 @@ import RPi.GPIO as GPIO
 GPIO.setmode (GPIO.BOARD)
 
 CONFIG_FILE="/etc/raspi_mgr.config"
+KEY_PAIR_FILE=""
 SSH_FWD_IP=None
 SSH_PORT=22
 TCP_FWD_IP=None
@@ -120,12 +121,13 @@ def parseArgs():
         return args
 
 def startsshSvc(args):
-        global SSH_FWD_IP, SSH_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT 
+        global SSH_FWD_IP, SSH_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT, KEY_PAIR_FILE
         if args.ssh and FWDNG_AGENT and (SSH_FWD_IP or TCP_FWD_IP) :
+            key_option = "-i %s"%KEY_PAIR_FILE if KEY_PAIR_FILE else ""
             ssh_option = "-R %s:%s:localhost:22"%(SSH_FWD_IP, SSH_PORT) if SSH_FWD_IP else ""
             tcp_option = "-R %s:%s:localhost:80"%(TCP_FWD_IP, TCP_PORT) if TCP_FWD_IP else ""
-            print("starting autossh service with options:%s %s"%(ssh_option,tcp_option), flush=True)
-            os.system('''export AUTOSSH_DEBUG=1; export AUTOSSH_POLL=60; autossh -M 0 -v -f %s %s %s -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes'''%(ssh_option,tcp_option,FWDNG_AGENT))
+            print("starting autossh service with options:%s %s %s"%(key_option,ssh_option,tcp_option), flush=True)
+            os.system('''export AUTOSSH_DEBUG=1; export AUTOSSH_POLL=60; autossh %s -M 0 -v -f %s %s %s -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes'''%(key_option,ssh_option,tcp_option,FWDNG_AGENT))
         else:
             print("skipping ssh forwarding service, please check config or arguments",flush=True)
 
@@ -140,7 +142,7 @@ def startFanManagerSvc(args, loop):
 
 
 def parseconfigfile():
-        global CONFIG_FILE, SSH_FWD_IP, SSH_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT 
+        global CONFIG_FILE, SSH_FWD_IP, SSH_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT, KEY_PAIR_FILE
         try:
             f=open(CONFIG_FILE,"r")
             lines=f.readlines()
@@ -153,6 +155,7 @@ def parseconfigfile():
             TCP_FWD_IP= configMap["TCP_FWD_IP"] if "TCP_FWD_IP" in configMap else None
             TCP_PORT= configMap["TCP_PORT"] if "TCP_PORT" in configMap else 80
             FWDNG_AGENT= configMap["FWDNG_AGENT"] if "FWDNG_AGENT" in configMap else None
+            KEY_PAIR_FILE= configMap["KEY_PAIR_FILE"] if "KEY_PAIR_FILE" in configMap else None 
 
         except Exception as e:
             print("Failed to parse config file, Exception:%s"%str(e), flush=True)
