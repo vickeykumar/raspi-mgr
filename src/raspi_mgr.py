@@ -13,6 +13,7 @@ CONFIG_FILE="/etc/raspi_mgr.config"
 KEY_PAIR_FILE=""
 SSH_FWD_IP=None
 SSH_PORT=22
+TUNNEL_PORT=22
 TCP_FWD_IP=None
 TCP_PORT=80
 FWDNG_AGENT=None
@@ -121,13 +122,14 @@ def parseArgs():
         return args
 
 def startsshSvc(args):
-        global SSH_FWD_IP, SSH_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT, KEY_PAIR_FILE
+        global SSH_FWD_IP, SSH_PORT, TUNNEL_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT, KEY_PAIR_FILE
         if args.ssh and FWDNG_AGENT and (SSH_FWD_IP or TCP_FWD_IP) :
             key_option = "-i %s"%KEY_PAIR_FILE if KEY_PAIR_FILE else ""
+            tunnel_option = "-p %s"%TUNNEL_PORT if TUNNEL_PORT!=22 else ""
             ssh_option = "-R %s:%s:localhost:22"%(SSH_FWD_IP, SSH_PORT) if SSH_FWD_IP else ""
             tcp_option = "-R %s:%s:localhost:80"%(TCP_FWD_IP, TCP_PORT) if TCP_FWD_IP else ""
             print("starting autossh service with options:%s %s %s"%(key_option,ssh_option,tcp_option), flush=True)
-            os.system('''export AUTOSSH_DEBUG=1; export AUTOSSH_POLL=60; autossh %s -M 0 -v -f %s %s %s -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes'''%(key_option,ssh_option,tcp_option,FWDNG_AGENT))
+            os.system('''export AUTOSSH_DEBUG=1; export AUTOSSH_POLL=60; autossh %s -M 0 -v -f %s %s %s %s -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes'''%(key_option,tunnel_option,ssh_option,tcp_option,FWDNG_AGENT))
         else:
             print("skipping ssh forwarding service, please check config or arguments",flush=True)
 
@@ -142,7 +144,7 @@ def startFanManagerSvc(args, loop):
 
 
 def parseconfigfile():
-        global CONFIG_FILE, SSH_FWD_IP, SSH_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT, KEY_PAIR_FILE
+        global CONFIG_FILE, SSH_FWD_IP, SSH_PORT, TUNNEL_PORT, TCP_FWD_IP, TCP_PORT, FWDNG_AGENT, KEY_PAIR_FILE
         try:
             f=open(CONFIG_FILE,"r")
             lines=f.readlines()
@@ -151,7 +153,8 @@ def parseconfigfile():
             lines = [l.split("=") for l in lines if not l.startswith("#")]
             configMap = dict([l for l in lines if len(l)==2])
             SSH_FWD_IP = configMap["SSH_FWD_IP"] if "SSH_FWD_IP" in configMap else None
-            SSH_PORT = configMap["SSH_PORT"] if "SSH_PORT" in configMap else 22 
+            SSH_PORT = configMap["SSH_PORT"] if "SSH_PORT" in configMap else 22
+            TUNNEL_PORT = configMap["TUNNEL_PORT"] if "TUNNEL_PORT" in configMap else 22 		
             TCP_FWD_IP= configMap["TCP_FWD_IP"] if "TCP_FWD_IP" in configMap else None
             TCP_PORT= configMap["TCP_PORT"] if "TCP_PORT" in configMap else 80
             FWDNG_AGENT= configMap["FWDNG_AGENT"] if "FWDNG_AGENT" in configMap else None
