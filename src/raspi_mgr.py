@@ -47,7 +47,9 @@ def getCPUtemp():
 def fan(mode=True):
         global FAN_PIN, FAN_ON, fanpwmHandle
         if fanpwmHandle:
-            fanpwmHandle.ChangeDutyCycle(0)
+            speed = 0
+            if mode: speed=100
+            fanpwmHandle.ChangeDutyCycle(speed)
         else:
             GPIO.output(FAN_PIN, mode)
         FAN_ON = mode
