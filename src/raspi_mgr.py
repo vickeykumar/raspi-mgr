@@ -19,30 +19,43 @@ TCP_PORT=80
 FWDNG_AGENT=None
 FAN_PIN = 7
 THRESHOLD_TEMP = 55
+FAN_START_TEMP = 55.0
+FAN_STOP_TEMP = 53.0       # hysteresis prevents rapid start/stop near 55°C
 FAN_ON = False
 ON = True
 OFF = False
-MIN_SPEED = 65 # minimum fan speed [%]
+MIN_SPEED = 65.0           # minimum PWM duty while the fan is running (%)
 PWM_FREQ = 200 #[Hz]
 fanpwmHandle = None
-WAIT_TIME = 60     #poll evry 60 sec for temperature
+WAIT_TIME = 5      # poll CPU temperature every 5 seconds
 cpuTempOld=0
 fanSpeedOld=0
 
 # variable temperature and fan speeds
-tempSteps = [50, 55, 60, 70]    # [°C]
-speedSteps = [0, 55, 75, 100]   # [%]
+tempSteps = [55, 60, 65, 70]    # [°C]
+speedSteps = [0, 50, 75, 100]   # [%]
 
 
 def getCPUtemp():
-        temp = float(0)
+        """Return CPU temperature in Celsius, or None if it cannot be read."""
+        import subprocess
+
         try:
-                out = os.popen('/usr/bin/vcgencmd measure_temp').readline()
-                temp = float(out.replace("temp=","").replace("'C\n",""))
-        except Exception as e:
-                print("Exception while getting cpu temperature: ",str(e))
-                pass
-        return temp
+                result = subprocess.run(
+                        ["/usr/bin/vcgencmd", "measure_temp"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=3,
+                )
+                # Expected output: temp=41.3'C
+                value = result.stdout.strip()
+                if not value.startswith("temp=") or not value.endswith("'C"):
+                        raise ValueError("unexpected vcgencmd output: %r" % value)
+                return float(value[len("temp="):-2])
+        except (OSError, subprocess.SubprocessError, ValueError) as e:
+                print("ERROR: unable to read CPU temperature: %s" % e, flush=True)
+                return None
 
 def fan(mode=True):
         global FAN_PIN, FAN_ON, fanpwmHandle
@@ -86,27 +99,49 @@ def fanManagerSvc(loop):
 
 # Fan manager PWM Svc
 def fanManagerPwmSvc(loop):
+        """Temperature-based PWM with a minimum running duty and fixed polling."""
         global FAN_ON, WAIT_TIME, fanSpeedOld, fanpwmHandle
-        cpuTemp = getCPUtemp()
-        fanSpeed = 0
-        loop_interval=WAIT_TIME
-        if(cpuTemp < tempSteps[0] or cpuTemp < THRESHOLD_TEMP):
-                if FAN_ON: fan(OFF)
-        elif(cpuTemp >= tempSteps[len(tempSteps)-1]):
-                if not FAN_ON: fan(ON)
-                fanSpeed = 100 # 100% speed
-        else:
-                fanSpeed = numpy.interp(cpuTemp, tempSteps, speedSteps)
-                if (fanSpeedOld!=fanSpeed):
-                    fanpwmHandle.ChangeDutyCycle(fanSpeed)
-                    if not int(fanSpeed):
-                        FAN_ON=False
-                    else:
-                        FAN_ON=True
-                if (cpuTemp>THRESHOLD_TEMP): loop_interval = 5*loop_interval*math.ceil((cpuTemp-THRESHOLD_TEMP)/5)
 
+        cpuTemp = getCPUtemp()
+        loop_interval = WAIT_TIME
+
+        if cpuTemp is None:
+                # Fail safe: if temperature cannot be read, command full fan.
+                fanSpeed = 100.0
+        elif FAN_ON and cpuTemp > FAN_STOP_TEMP:
+                # Once running, keep it running until it cools below stop temp.
+                if cpuTemp < FAN_START_TEMP:
+                        fanSpeed = MIN_SPEED
+                else:
+                        fanSpeed = float(
+                                numpy.interp(cpuTemp, tempSteps, speedSteps)
+                        )
+                        # Avoid low-duty humming/stalling on a 2-wire fan.
+                        fanSpeed = max(MIN_SPEED, fanSpeed)
+        elif cpuTemp >= FAN_START_TEMP:
+                fanSpeed = float(
+                        numpy.interp(cpuTemp, tempSteps, speedSteps)
+                )
+                # A nonzero target must be at least the configured start duty.
+                fanSpeed = max(MIN_SPEED, fanSpeed)
+        else:
+                fanSpeed = 0.0
+
+        fanSpeed = max(0.0, min(100.0, fanSpeed))
+        if fanpwmHandle is not None:
+                fanpwmHandle.ChangeDutyCycle(fanSpeed)
+
+        FAN_ON = fanSpeed > 0.0
         fanSpeedOld = fanSpeed
-        print("CPU Temp: %d loop_after:%s fanspeed:%s FAN_ON:%s"%(cpuTemp, loop_interval, fanSpeed, FAN_ON), flush=True)
+
+        tempText = "UNKNOWN" if cpuTemp is None else "%.1f" % cpuTemp
+        print(
+                "CPU Temp: %s loop_after:%ss fanspeed:%.1f FAN_ON:%s"
+                % (tempText, loop_interval, fanSpeed, FAN_ON),
+                flush=True,
+        )
+
+        # Keep monitoring frequent even when the CPU is hot.
         loop.call_later(loop_interval, fanManagerPwmSvc, loop)
 
 
@@ -170,7 +205,8 @@ def parseconfigfile():
 def main():
         loop=0
         args = parseArgs()
-        parseconfigfile()
+        if args.ssh:
+                parseconfigfile()
         try:
                 startsshSvc(args)
                 loop = asyncio.get_event_loop()
