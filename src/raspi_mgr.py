@@ -37,7 +37,7 @@ speedSteps = [0, 55, 75, 100]   # [%]
 def getCPUtemp():
         temp = float(0)
         try:
-                out = os.popen('/opt/vc/bin/vcgencmd measure_temp').readline()
+                out = os.popen('/usr/bin/vcgencmd measure_temp').readline()
                 temp = float(out.replace("temp=","").replace("'C\n",""))
         except Exception as e:
                 print("Exception while getting cpu temperature: ",str(e))
