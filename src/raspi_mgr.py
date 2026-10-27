@@ -27,7 +27,7 @@ OFF = False
 MIN_SPEED = 65.0           # minimum PWM duty while the fan is running (%)
 PWM_FREQ = 200 #[Hz]
 fanpwmHandle = None
-WAIT_TIME = 5      # poll CPU temperature every 5 seconds
+WAIT_TIME = 60      # poll CPU temperature every 5 seconds
 cpuTempOld=0
 fanSpeedOld=0
 
